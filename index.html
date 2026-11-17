@@ -103,7 +103,7 @@ select{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--bd);bac
     <div class="row"><button class="btn" id="bw" disabled>Convert to Word &amp; download</button></div>
     <div class="bar" id="pw"><i></i></div>
     <div class="msg" id="mw"></div>
-    <p class="note">Rebuilds editable text, paragraph by paragraph, from the text inside the PDF. Images, tables and exact layout are not carried over. Scanned PDFs contain no text, so they can’t be converted.</p>
+    <p class="note">Tables drawn in the PDF come out as real Word tables with their colours and merged headers. Other text is rebuilt paragraph by paragraph. Pictures and exact fonts are not carried over. Scanned PDFs contain no text, so they can’t be converted.</p>
   </section>
 
   <section id="xls" class="card" hidden>
@@ -122,7 +122,7 @@ select{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--bd);bac
     <div class="row"><button class="btn" id="bx" disabled>Convert to Excel &amp; download</button></div>
     <div class="bar" id="px"><i></i></div>
     <div class="msg" id="mx"></div>
-    <p class="note">Works best on PDFs with tables of text. Rows and columns are worked out from the gaps between text, so check the result. If columns are merged, try “More columns”; if one column is split apart, try “Fewer columns”. Cells that wrap over several lines become separate rows. Scanned PDFs contain no text, so they can’t be converted.</p>
+    <p class="note">PDFs with a drawn table keep their cells, columns and merged headers. For other PDFs, rows and columns are worked out from the gaps between text: if columns are merged, try “More columns”; if one column is split apart, try “Fewer columns”. Cells that wrap over several lines become separate rows. Scanned PDFs contain no text, so they can’t be converted.</p>
   </section>
 
   <section id="rot" class="card" hidden>
@@ -454,6 +454,246 @@ function toLines(items){
   return lines.filter(L=>L.text);
 }
 
+/* ===== table-aware extraction (uses cell borders and fills drawn in the PDF) ===== */
+function mulM(a,m){return [a[0]*m[0]+a[2]*m[1],a[1]*m[0]+a[3]*m[1],a[0]*m[2]+a[2]*m[3],a[1]*m[2]+a[3]*m[3],a[0]*m[4]+a[2]*m[5]+a[4],a[1]*m[4]+a[3]*m[5]+a[5]]}
+async function pageRects(pg){
+  const ol=await pg.getOperatorList(),O=pdfjsLib.OPS,rects=[];
+  let ctm=[1,0,0,1,0,0],stack=[],fill=[0,0,0],pend=[];
+  const pt=(x,y)=>[ctm[0]*x+ctm[2]*y+ctm[4],ctm[1]*x+ctm[3]*y+ctm[5]];
+  const addBox=pts=>{
+    const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+    pend.push({x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)});
+  };
+  const flush=(paint)=>{
+    for(const r of pend)rects.push({...r,fill:paint?fill.slice():null,order:rects.length});
+    pend=[];
+  };
+  const isFill=op=>op===O.fill||op===O.eoFill||op===O.fillStroke||op===O.eoFillStroke||op===O.closeFillStroke||op===O.closeEOFillStroke;
+  const isStroke=op=>op===O.stroke||op===O.closeStroke;
+  function path3(ops,co){
+    let k=0,sub=[];
+    const end=()=>{if(sub.length>1)addBox(sub);sub=[]};
+    for(const o of ops){
+      if(o===O.moveTo){end();sub=[pt(co[k],co[k+1])];k+=2}
+      else if(o===O.lineTo){sub.push(pt(co[k],co[k+1]));k+=2}
+      else if(o===O.curveTo){k+=6}
+      else if(o===O.curveTo2||o===O.curveTo3){k+=4}
+      else if(o===O.closePath){}
+      else if(o===O.rectangle){end();const x=co[k],y=co[k+1],w=co[k+2],h=co[k+3];k+=4;addBox([pt(x,y),pt(x+w,y),pt(x+w,y+h),pt(x,y+h)])}
+    }
+    end();
+  }
+  function pathNew(data){
+    /* newer pdf.js: flat array of 0 moveTo(2) 1 lineTo(2) 2 curveTo(6) 3 quad(4) 4 close */
+    let k=0,sub=[];
+    const end=()=>{if(sub.length>1)addBox(sub);sub=[]};
+    while(k<data.length){
+      const c=data[k++];
+      if(c===0){end();sub=[pt(data[k],data[k+1])];k+=2}
+      else if(c===1){sub.push(pt(data[k],data[k+1]));k+=2}
+      else if(c===2){k+=6}else if(c===3){k+=4}else if(c===4){}
+      else break;
+    }
+    end();
+  }
+  for(let i=0;i<ol.fnArray.length;i++){
+    const op=ol.fnArray[i],a=ol.argsArray[i];
+    if(op===O.save)stack.push([ctm.slice(),fill.slice()]);
+    else if(op===O.restore){const s=stack.pop();if(s){ctm=s[0];fill=s[1]}}
+    else if(op===O.transform)ctm=mulM(ctm,a);
+    else if(op===O.setFillRGBColor){
+      if(typeof a==="string"||(a&&typeof a[0]==="string")){const h=String(typeof a==="string"?a:a[0]).replace("#","");fill=[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]}
+      else fill=Array.from(a).slice(0,3).map(Number);
+      if(fill.some(v=>!isFinite(v)))fill=[255,255,255];
+    }
+    else if(op===O.constructPath){
+      if(Array.isArray(a)&&Array.isArray(a[0]))path3(a[0],a[1]);
+      else if(a&&typeof a[0]==="number"&&a[1]&&a[1].length!==undefined){
+        pathNew(typeof a[1][0]==='number'?a[1]:a[1][0]);
+        if(isFill(a[0]))flush(true);else if(isStroke(a[0]))flush(false);else if(a[0]===O.endPath)pend=[];
+      }
+    }
+    else if(isFill(op))flush(true);
+    else if(isStroke(op))flush(false);
+    else if(op===O.endPath)pend=[];
+  }
+  return rects;
+}
+function clusterNums(v,tol){
+  v=v.slice().sort((a,b)=>a-b);const out=[];
+  for(const x of v){const L=out[out.length-1];if(L&&x-L.last<=tol){L.sum+=x;L.n++;L.last=x}else out.push({sum:x,n:1,last:x})}
+  return out.map(g=>g.sum/g.n);
+}
+const nearIdx=(arr,x,tol=2.5)=>{let b=-1,d=1e9;arr.forEach((v,i)=>{const e=Math.abs(v-x);if(e<d){d=e;b=i}});return d<=tol?b:-1};
+const cleanTxt=s=>s.replace(/[︎️​-‏]/g,"").replace(/\s+/g," ").trim();
+const isDark=f=>f&&(0.299*f[0]+0.587*f[1]+0.114*f[2])<140;
+/* returns {rows:[{cells:[{t,span,fill,items}], y}], widths:[pts], hasGrid} or null when the page has no table */
+async function pageGrid(pg,items,pw,ph){
+  let rects;
+  try{rects=await pageRects(pg)}catch(e){return null}
+  rects=rects.filter(r=>r.x1-r.x0>=0.5&&r.y1-r.y0>=0.5&&!((r.x1-r.x0)>pw*0.97&&(r.y1-r.y0)>ph*0.9));
+  const block=rects.filter(r=>r.x1-r.x0>=3&&r.y1-r.y0>=3);
+  if(block.length<8)return null;
+  const xsAll=[],ysAll=[];
+  for(const r of rects){
+    const w=r.x1-r.x0,h=r.y1-r.y0;
+    if(h>=3||w<=2)xsAll.push(r.x0,r.x1);
+    if(w>=3||h<=2)ysAll.push(r.y0,r.y1);
+  }
+  const xs=clusterNums(xsAll,1.6),ys=clusterNums(ysAll,1.6).sort((a,b)=>b-a);
+  if(xs.length<4||ys.length<4)return null;
+  const nC=xs.length-1,nB=ys.length-1;
+  const bandOf=cy=>{for(let i=0;i<nB;i++)if(cy<=ys[i]+0.8&&cy>ys[i+1]-0.8){/* prefer exact */ if(cy<=ys[i]&&cy>=ys[i+1])return i}return -1};
+  const colOf=cx=>{if(cx<xs[0])return 0;for(let c=0;c<nC;c++)if(cx>=xs[c]&&cx<xs[c+1])return c;return nC-1};
+  const cells=new Map(),left=[];
+  for(const it of items){
+    const cy=it.y+it.h*0.3,cx=it.x+Math.min(1.5,it.w/2),b=bandOf(cy);
+    if(b<0||cx<xs[0]-3||cx>xs[nC]+3){left.push(it);continue}
+    const key=b+"|"+colOf(cx);
+    (cells.get(key)||cells.set(key,[]).get(key)).push(it);
+  }
+  const rowMap=new Map();
+  const rowFor=(b,y)=>{if(!rowMap.has(b))rowMap.set(b,{y,band:b,c:new Map()});return rowMap.get(b)};
+  for(const [key,its] of cells){
+    const [b,c]=key.split("|").map(Number);
+    its.sort((p,q)=>(Math.abs(p.y-q.y)>Math.max(2,p.h*0.5)?q.y-p.y:p.x-q.x));
+    const lines=[];let ly=null;
+    for(const i of its){
+      if(ly===null||Math.abs(i.y-ly)>Math.max(2,i.h*0.6)){lines.push({y:i.y,p:[]});ly=i.y}
+      lines[lines.length-1].p.push(i.s);
+    }
+    const ls=lines.map(l=>({y:l.y,t:cleanTxt(l.p.join(" ").replace(/ +([,.;:])/g,"$1"))})).filter(l=>l.t);
+    if(!ls.length)continue;
+    const row=rowFor(b,(ys[b]+ys[b+1])/2);
+    row.c.set(c,{ls,h:Math.max(...its.map(i=>i.h)),x0:Math.min(...its.map(i=>i.x)),x1:Math.max(...its.map(i=>i.x+i.w))});
+  }
+  /* text outside every cell: keep as plain rows, placed by position */
+  const extra=[];
+  if(left.length){
+    for(const L of toLines(left.slice())){
+      L.segs=lineSegs(L,0.9);
+      const row={y:L.y,band:-1,c:new Map(),full:true};
+      L.segs.forEach(g=>{const c=colOf(g.x);const prev=row.c.get(c);const t=cleanTxt((prev?prev.ls[0].t+" ":"")+g.t);row.c.set(c,{ls:[{y:L.y,t}],h:L.h,x0:prev?prev.x0:g.x,x1:g.r})});
+      if(row.c.size)extra.push(row);
+    }
+  }
+  let rows=[...rowMap.values(),...extra].sort((a,b)=>b.y-a.y);
+  if(!rows.length)return null;
+  /* pieces of one block of text that fell into different columns (stacked, centred lines) */
+  const finish=c=>{c.ls.sort((p,q)=>q.y-p.y);c.lines=c.ls.map(l=>l.t);c.t=c.lines.join(" ");return c};
+  for(const r of rows){
+    const ks=[...r.c.keys()].sort((a,b)=>a-b);
+    for(let i=0;i<ks.length;i++){
+      const a=r.c.get(ks[i]);if(!a)continue;
+      for(let j=i+1;j<ks.length;j++){
+        const b=r.c.get(ks[j]);if(!b)continue;
+        if(b.x0<a.x1-1&&a.ls.some(l=>b.ls.every(m=>Math.abs(m.y-l.y)>3))||(b.x0<a.x1-1&&b.x0>a.x0-1&&b.ls.length&&a.ls.length&&Math.abs(b.ls[0].y-a.ls[0].y)>3)){
+          a.ls=a.ls.concat(b.ls);a.x1=Math.max(a.x1,b.x1);a.h=Math.max(a.h,b.h);r.c.delete(ks[j]);
+        }
+      }
+    }
+    for(const c of r.c.values())finish(c);
+  }
+  /* keep only columns that hold text */
+  const used=[...new Set(rows.flatMap(r=>[...r.c.keys()]))].sort((a,b)=>a-b);
+  const kept=used.slice();
+  const keptOf=c=>{let k=0;for(let i=0;i<kept.length;i++)if(kept[i]<=c)k=i;return k};
+  const bounds=kept.map(c=>xs[c]);bounds.push(xs[nC]);
+  const widths=kept.map((c,i)=>Math.max(8,bounds[i+1]-bounds[i]));
+  const bigRects=rects.filter(r=>r.fill&&(r.x1-r.x0)*(r.y1-r.y0)<pw*ph*0.5);
+  const out=[];
+  for(const r of rows){
+    const cs=kept.map(()=>null);
+    for(const [c,v] of r.c){const k=keptOf(c),p=cs[k];cs[k]=p?{...p,t:p.t+" "+v.t,lines:p.lines.concat(v.lines),x1:Math.max(p.x1,v.x1)}:{t:v.t,lines:v.lines,h:v.h,x0:v.x0,x1:v.x1}}
+    /* fill colour and merging from the rectangle behind each text cell */
+    const bandH=r.band>=0?ys[r.band]-ys[r.band+1]:12;
+    const cy=r.band>=0?(ys[r.band]+ys[r.band+1])/2:r.y;
+    cs.forEach((cell,k)=>{
+      if(!cell){
+        /* empty cell: still carry the background colour */
+        const cx=(bounds[k]+bounds[k+1])/2;
+        const cover=bigRects.filter(q=>cx>=q.x0&&cx<=q.x1&&cy>=q.y0&&cy<=q.y1&&(q.y1-q.y0)<=bandH*1.6+2).sort((a,b)=>b.order-a.order)[0];
+        if(cover&&!(cover.fill[0]>250&&cover.fill[1]>250&&cover.fill[2]>250))cs[k]={t:"",h:10,fill:cover.fill,empty:true};
+        else cs[k]={t:"",h:10,empty:true};
+        return;
+      }
+      const cx=(bounds[k]+bounds[k+1])/2;
+      const cover=bigRects.filter(q=>cx>=q.x0&&cx<=q.x1&&cy>=q.y0&&cy<=q.y1&&(q.y1-q.y0)<=bandH*1.6+2).sort((a,b)=>b.order-a.order)[0];
+      if(cover&&!(cover.fill[0]>250&&cover.fill[1]>250&&cover.fill[2]>250))cell.fill=cover.fill;
+      cell.span=1;
+    });
+    /* merge: centred text takes its whole coloured block, other long text spreads over the empty cells beside it */
+    if(r.full){
+      const filled=cs.filter(c=>c&&!c.empty);
+      if(filled.length===1){const fk=cs.indexOf(filled[0]);filled[0].span=cs.length-fk;for(let j=fk+1;j<cs.length;j++)cs[j]=null;}
+    }else{
+      for(let k=0;k<cs.length;k++){
+        const cell=cs[k];if(!cell||cell.empty||cell.span>1)continue;
+        if(/^[-+(]?[\d.,]+%?\)?$/.test(cell.t))continue;
+        const cover=rects.filter(q=>q.fill&&cell.x0>=q.x0-1.5&&cell.x1<=q.x1+1.5&&cy>=q.y0&&cy<=q.y1&&(q.y1-q.y0)<=bandH*1.6+2&&(q.x1-q.x0)<pw*0.9).sort((p,q)=>(p.x1-p.x0)-(q.x1-q.x0))[0];
+        let k0=k,k1=k;
+        const centred=cover&&Math.abs((cell.x0-cover.x0)-(cover.x1-cell.x1))<=Math.max(6,(cover.x1-cover.x0)*0.12);
+        if(centred&&cover.x1-cover.x0>cell.x1-cell.x0+4){
+          while(k1<cs.length-1&&bounds[k1+1]<cover.x1-1.5&&cs[k1+1]&&cs[k1+1].empty)k1++;
+          while(k0>0&&bounds[k0]>cover.x0+1.5&&cs[k0-1]&&cs[k0-1].empty)k0--;
+        }else{
+          while(k1<cs.length-1&&bounds[k1+1]<cell.x1-1.5&&cs[k1+1]&&cs[k1+1].empty)k1++;
+        }
+        if(k1>k0){
+          const keep=Object.assign({},cell,{span:k1-k0+1,center:!!centred});
+          for(let j=k0;j<=k1;j++)cs[j]=null;
+          cs[k0]=keep;
+        }else if(centred)cell.center=true;
+      }
+    }
+    if(cs.some(c=>c&&!c.empty))out.push({y:r.y,cells:cs,hgt:r.band>=0?bandH:Math.max(...r.c.size?[...r.c.values()].map(v=>v.h*1.4):[12])});
+  }
+  return out.length?{rows:out,widths,numCols:kept.length}:null;
+}
+
+const xmlEsc=s=>s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g,"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const hexOf=f=>f.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,"0")).join("").toUpperCase();
+const NUMRE=/^[-+(]?[\d.,]+%?\)?$/;
+/* a detected table becomes a real Word table */
+function gridXml(g,pi,size){
+  const avail=Math.round(size[0]*20-1440),tot=g.widths.reduce((a,b)=>a+b,0);
+  const tw=g.widths.map(w=>Math.max(200,Math.round(w/tot*avail)));
+  const bd=n=>'<w:'+n+' w:val="single" w:sz="4" w:space="0" w:color="BFBFBF"/>';
+  let x=(pi>0?'<w:p><w:pPr><w:pageBreakBefore/><w:spacing w:after="0" w:line="20" w:lineRule="exact"/></w:pPr></w:p>':"");
+  x+='<w:tbl><w:tblPr><w:tblW w:w="'+tw.reduce((a,b)=>a+b,0)+'" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>'+["top","left","bottom","right","insideH","insideV"].map(bd).join("")+'</w:tblBorders><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="50" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="50" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>'+tw.map(w=>'<w:gridCol w:w="'+w+'"/>').join("")+'</w:tblGrid>';
+  for(const r of g.rows){
+    x+='<w:tr><w:trPr><w:cantSplit/><w:trHeight w:val="'+Math.round((r.hgt||12)*18)+'" w:hRule="atLeast"/></w:trPr>';
+    r.cells.forEach((c,k)=>{
+      if(c===null)return;
+      const span=c.span||1;let w=0;for(let j=k;j<k+span;j++)w+=tw[j]||0;
+      const dark=isDark(c.fill);
+      x+='<w:tc><w:tcPr><w:tcW w:w="'+w+'" w:type="dxa"/>'+(span>1?'<w:gridSpan w:val="'+span+'"/>':'')+(c.fill&&!(c.fill[0]>250&&c.fill[1]>250&&c.fill[2]>250)?'<w:shd w:val="clear" w:color="auto" w:fill="'+hexOf(c.fill)+'"/>':'')+'<w:vAlign w:val="center"/></w:tcPr>';
+      if(!c.lines||!c.lines.length)x+='<w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:p>';
+      else for(const ln of c.lines){
+        const sz=Math.min(40,Math.max(12,Math.round(c.h*1.8)));
+        const ctr=c.center||NUMRE.test(c.t)||(dark&&span>1);
+        x+='<w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="'+(ctr?"center":"left")+'"/></w:pPr><w:r><w:rPr>'+(dark?'<w:b/>':'')+'<w:color w:val="'+(dark?"FFFFFF":"000000")+'"/><w:sz w:val="'+sz+'"/><w:szCs w:val="'+sz+'"/></w:rPr><w:t xml:space="preserve">'+xmlEsc(ln)+'</w:t></w:r></w:p>';
+      }
+      x+='</w:tc>';
+    });
+    x+='</w:tr>';
+  }
+  return x+'</w:tbl><w:p><w:pPr><w:spacing w:after="0" w:line="20" w:lineRule="exact"/></w:pPr></w:p>';
+}
+function gridAoa(g,asNum){
+  const aoa=[],merges=[];
+  g.rows.forEach((r,ri)=>{
+    const row=[];
+    r.cells.forEach((c,k)=>{
+      if(!c||c.empty){row[k]=null;return}
+      row[k]=cellValue(c.t,asNum);
+      if(c.span>1)merges.push({s:{r:ri,c:k},e:{r:ri,c:k+c.span-1}});
+    });
+    aoa.push(row);
+  });
+  return {aoa,merges,widths:g.widths.map(w=>Math.max(5,Math.round(w/5.2)))};
+}
+
 /* PDF to Word */
 let wf=null;
 wireDrop($("dw"),$("fw"),l=>{
@@ -463,7 +703,9 @@ wireDrop($("dw"),$("fw"),l=>{
 async function buildDocx(pages,size){
   const esc=s=>s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g,"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   let body="";
-  pages.forEach((lines,pi)=>{
+  pages.forEach((pgd,pi)=>{
+    if(pgd.grid){body+=gridXml(pgd.grid,pi,size);return}
+    const lines=pgd.lines;
     const paras=[];
     const minX=lines.length?Math.min(...lines.map(l=>l.left)):0;
     const maxR=lines.length?Math.max(...lines.map(l=>l.right)):0;
@@ -492,7 +734,7 @@ async function buildDocx(pages,size){
   zip.file("_rels/.rels",H+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
   zip.file("word/_rels/document.xml.rels",H+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
   zip.file("word/styles.xml",H+"<w:styles "+NS+'><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri" w:eastAsia="Calibri"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="264" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults></w:styles>');
-  zip.file("word/document.xml",H+"<w:document "+NS+"><w:body>"+body+'<w:sectPr><w:pgSz w:w="'+pw+'" w:h="'+ph+'"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>');
+  zip.file("word/document.xml",H+"<w:document "+NS+"><w:body>"+body+'<w:sectPr><w:pgSz w:w="'+pw+'" w:h="'+ph+'"/><w:pgMar w:top="360" w:right="720" w:bottom="360" w:left="720" w:header="360" w:footer="360" w:gutter="0"/></w:sectPr></w:body></w:document>');
   return zip.generateAsync({type:"uint8array",compression:"DEFLATE"});
 }
 $("bw").onclick=async()=>{
@@ -503,9 +745,12 @@ $("bw").onclick=async()=>{
     for(let i=1;i<=src.numPages;i++){
       const pg=await src.getPage(i);
       if(!size){const v=pg.getViewport({scale:1});size=[v.width,v.height]}
-      const lines=toLines(await pageItems(pg));
+      const v=pg.getViewport({scale:1});
+      const its=await pageItems(pg);
+      let grid=null;try{grid=await pageGrid(pg,its.slice(),v.width,v.height)}catch(e){grid=null}
+      const lines=toLines(its);
       chars+=lines.reduce((n,l)=>n+l.text.length,0);
-      pages.push(lines);
+      pages.push({lines,grid});
       prog("pw",i/src.numPages*0.8);
     }
     if(!chars){say("mw",NOTEXT,"er")}
@@ -583,25 +828,41 @@ $("bx").onclick=async()=>{
   $("bx").disabled=true;say("mx","Reading text…");prog("px",0);
   try{
     const src=await openPdfjs(await xf.arrayBuffer());
-    const asNum=$("xn").checked,gm=+$("xc").value,pagesLines=[];let chars=0;
+    const asNum=$("xn").checked,gm=+$("xc").value,pagesData=[];let chars=0;
     for(let i=1;i<=src.numPages;i++){
       const pg=await src.getPage(i);
-      const lines=toLines(await pageItems(pg));
+      const v=pg.getViewport({scale:1});
+      const its=await pageItems(pg);
+      let grid=null;try{grid=await pageGrid(pg,its.slice(),v.width,v.height)}catch(e){grid=null}
+      const lines=toLines(its);
       chars+=lines.reduce((n,l)=>n+l.text.length,0);
-      lines.forEach(L=>{L.segs=lineSegs(L,gm)});pagesLines.push(lines);
+      lines.forEach(L=>{L.segs=lineSegs(L,gm)});
+      let part;
+      if(grid)part=gridAoa(grid,asNum);
+      else{const cuts=findCuts(lines);part={aoa:lines.map(L=>toRow(L,cuts,asNum)),merges:[],widths:null}}
+      pagesData.push(part);
       prog("px",i/src.numPages*0.8);
     }
     if(!chars){say("mx",NOTEXT,"er")}
     else{
       say("mx","Building Excel file…");
       const wb=XLSX.utils.book_new();
-      if($("xm").value==="one"){
-        const all=pagesLines.flat(),cuts=findCuts(all);
-        XLSX.utils.book_append_sheet(wb,sheetFrom(all.map(L=>toRow(L,cuts,asNum))),"PDF data");
-      }else pagesLines.forEach((ls,i)=>{
-        const cuts=findCuts(ls);
-        XLSX.utils.book_append_sheet(wb,sheetFrom(ls.map(L=>toRow(L,cuts,asNum))),"Page "+(i+1));
-      });
+      const mk=(parts)=>{
+        const aoa=[],merges=[],widths=[];
+        for(const p of parts){
+          const off=aoa.length;
+          p.aoa.forEach(r=>aoa.push(r));
+          p.merges.forEach(m=>merges.push({s:{r:m.s.r+off,c:m.s.c},e:{r:m.e.r+off,c:m.e.c}}));
+          if(p.widths)p.widths.forEach((w,k)=>{widths[k]=Math.max(widths[k]||0,w)});
+          else p.aoa.forEach(r=>r.forEach((v,k)=>{if(v!=null)widths[k]=Math.max(widths[k]||0,Math.min(60,String(v).length+2))}));
+        }
+        const ws=XLSX.utils.aoa_to_sheet(aoa.length?aoa:[[null]]);
+        if(merges.length)ws["!merges"]=merges;
+        ws["!cols"]=Array.from(widths,w=>({wch:Math.max(6,w||6)}));
+        return ws;
+      };
+      if($("xm").value==="one")XLSX.utils.book_append_sheet(wb,mk(pagesData),"PDF data");
+      else pagesData.forEach((p,i)=>XLSX.utils.book_append_sheet(wb,mk([p]),"Page "+(i+1)));
       const bytes=new Uint8Array(XLSX.write(wb,{bookType:"xlsx",type:"array"}));prog("px",1);
       const r=await save(baseName(xf)+".xlsx",bytes);
       say("mx",r==="declined"?"Download cancelled.":r?("Excel file saved ("+fmt(bytes.length)+")."):"Could not save the file.",r===true?"ok":"er");
