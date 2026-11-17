@@ -50,6 +50,7 @@ select{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--bd);bac
     <button class="tab" data-t="stamp">Numbers &amp; watermark</button>
     <button class="tab" data-t="img2pdf">Images to PDF</button>
     <button class="tab" data-t="pdf2img">PDF to Images</button>
+    <button class="tab" data-t="photo">Reduce photo size</button>
     <button class="tab" data-t="word">PDF to Word</button>
     <button class="tab" data-t="xls">PDF to Excel</button>
     <button class="tab" data-t="txt">PDF to Text</button>
@@ -111,14 +112,17 @@ select{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--bd);bac
     <ul id="lx"></ul>
     <div class="row">
       <label>Layout
-        <select id="xm"><option value="sheets" selected>One sheet per page</option><option value="one">All pages on one sheet</option></select>
+        <select id="xm"><option value="one" selected>All pages on one sheet</option><option value="sheets">One sheet per page</option></select>
+      </label>
+      <label>Columns
+        <select id="xc"><option value="0.9" selected>Standard</option><option value="0.5">More columns</option><option value="1.6">Fewer columns</option></select>
       </label>
       <label><input type="checkbox" id="xn" checked> Turn numbers into numbers</label>
     </div>
     <div class="row"><button class="btn" id="bx" disabled>Convert to Excel &amp; download</button></div>
     <div class="bar" id="px"><i></i></div>
     <div class="msg" id="mx"></div>
-    <p class="note">Works best on PDFs with tables of text. Rows and columns are worked out from where the text sits on each page, so check the result. Scanned PDFs contain no text, so they can’t be converted.</p>
+    <p class="note">Works best on PDFs with tables of text. Rows and columns are worked out from the gaps between text, so check the result. If columns are merged, try “More columns”; if one column is split apart, try “Fewer columns”. Cells that wrap over several lines become separate rows. Scanned PDFs contain no text, so they can’t be converted.</p>
   </section>
 
   <section id="rot" class="card" hidden>
@@ -191,6 +195,27 @@ select{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--bd);bac
     <p class="note">Several pages come as one ZIP with an image for each page. A single page comes as one image.</p>
   </section>
 
+  <section id="photo" class="card" hidden>
+    <div class="drop" id="dp"><b>Click to choose photos</b> or drop them here<br><small>JPG, PNG or WebP. You can pick many at once</small></div>
+    <input id="fp" type="file" accept="image/*" multiple hidden>
+    <ul id="lp"></ul>
+    <div class="row">
+      <label>Quality
+        <select id="pq"><option value="0.85">High (best quality)</option><option value="0.7" selected>Medium</option><option value="0.5">Low (smallest)</option></select>
+      </label>
+      <label>Longest side
+        <select id="pd"><option value="0">Keep original size</option><option value="3000">3000 px</option><option value="2048" selected>2048 px</option><option value="1600">1600 px</option><option value="1280">1280 px</option><option value="800">800 px</option></select>
+      </label>
+      <label>Format
+        <select id="pf"><option value="jpg" selected>JPG</option><option value="webp">WebP (smaller)</option></select>
+      </label>
+    </div>
+    <div class="row"><button class="btn" id="bp" disabled>Reduce &amp; download</button></div>
+    <div class="bar" id="pp"><i></i></div>
+    <div class="msg" id="mp"></div>
+    <p class="note">Photos with transparency get a white background. If a result is larger than the original, the original file is kept. Several photos come as one ZIP.</p>
+  </section>
+
   <section id="txt" class="card" hidden>
     <div class="drop" id="dy"><b>Click to choose a PDF</b> or drop it here</div>
     <input id="fy" type="file" accept="application/pdf" hidden>
@@ -223,7 +248,7 @@ async function save(name,bytes){
   try{const ext=name.split(".").pop().toLowerCase();const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([bytes],{type:MIME[ext]||"application/octet-stream"}));a.download=name;a.click();return true}catch(e){return false}
 }
 
-const TABS=["merge","comp","split","rot","stamp","img2pdf","pdf2img","word","xls","txt"];
+const TABS=["merge","comp","split","rot","stamp","img2pdf","pdf2img","photo","word","xls","txt"];
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
   document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===t));
   TABS.forEach(id=>$(id).hidden=t.dataset.t!==id);
@@ -501,61 +526,82 @@ wireDrop($("dx"),$("fx"),l=>{
   fileRow("lx",f.name,fmt(f.size));$("bx").disabled=false;say("mx","");
 });
 function cellValue(t,asNum){
-  if(asNum&&t.length<=16&&(/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(t)||/^-?(0|[1-9]\d*)(\.\d+)?$/.test(t)))return Number(t.replace(/,/g,""));
+  if(!asNum||t.length>18)return t;
+  let m=t.match(/^\((\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)\)$/);
+  if(m)return -Number(m[1].replace(/,/g,""));
+  if(/^[-+]?\d{1,3}(,\d{3})+(\.\d+)?$/.test(t)||/^[-+]?(0|[1-9]\d*)(\.\d+)?$/.test(t))return Number(t.replace(/,/g,""));
   return t;
 }
-/* turn one page's lines into rows of cells, with columns lined up by x position */
-function pageRows(lines,asNum){
-  const rows=lines.map(L=>{
-    const cells=[];let cur=null,prev=null;
-    const items=L.items.slice().sort((a,b)=>a.x-b.x);
-    for(const it of items){
-      const gap=prev?it.x-(prev.x+prev.w):0;
-      if(!cur||gap>Math.max(6,L.h*0.8))cells.push(cur={x:it.x,t:it.s});
-      else cur.t+=(gap>L.h*0.15&&!/\s$/.test(cur.t)&&!/^\s/.test(it.s)?" ":"")+it.s;
-      prev=it;
+/* split a line into cells wherever there is a wide gap (gm scales how wide) */
+function lineSegs(L,gm){
+  const items=L.items.slice().sort((a,b)=>a.x-b.x);
+  const segs=[];let cur=null,prev=null;
+  for(const it of items){
+    const gap=prev?it.x-(prev.x+prev.w):0;
+    if(!cur||gap>Math.max(5,L.h*gm))segs.push(cur={x:it.x,r:it.x+it.w,t:it.s});
+    else{
+      cur.t+=(gap>L.h*0.15&&!/\s$/.test(cur.t)&&!/^\s/.test(it.s)?" ":"")+it.s;
+      cur.r=Math.max(cur.r,it.x+it.w);
     }
-    cells.forEach(c=>c.t=c.t.trim());
-    return cells.filter(c=>c.t);
-  }).filter(r=>r.length);
-  const xs=[...new Set(rows.flat().map(c=>Math.round(c.x)))].sort((a,b)=>a-b);
-  const colOf=new Map();let ci=-1,last=-Infinity;
-  for(const x of xs){if(x-last>10)ci++;colOf.set(x,ci);last=x}
-  return rows.map(r=>{
-    const row=[];
-    for(const c of r){
-      const k=colOf.get(Math.round(c.x));
-      row[k]=row[k]===undefined?c.t:row[k]+" "+c.t;
-    }
-    for(let k=0;k<row.length;k++)row[k]=row[k]===undefined?"":cellValue(row[k],asNum);
-    return row;
-  });
+    prev=it;
+  }
+  segs.forEach(g=>g.t=g.t.trim());
+  return segs.filter(g=>g.t);
+}
+/* column borders: empty vertical strips that no cell of any multi-cell row crosses */
+function findCuts(lines){
+  const iv=[];
+  for(const L of lines)if(L.segs.length>=2)L.segs.forEach(g=>iv.push([g.x,g.r]));
+  iv.sort((a,b)=>a[0]-b[0]);
+  const blocks=[];
+  for(const [a,b] of iv){
+    const m=blocks[blocks.length-1];
+    if(m&&a<=m[1]+1)m[1]=Math.max(m[1],b);else blocks.push([a,b]);
+  }
+  const cuts=[];
+  for(let i=0;i+1<blocks.length;i++)cuts.push((blocks[i][1]+blocks[i+1][0])/2);
+  return cuts;
+}
+function toRow(L,cuts,asNum){
+  const row=[];
+  for(const g of L.segs){
+    let k=0;while(k<cuts.length&&cuts[k]<=g.x+1)k++;
+    row[k]=row[k]==null?g.t:row[k]+" "+g.t;
+  }
+  const out=[];
+  for(let k=0;k<row.length;k++)out.push(row[k]==null?null:cellValue(row[k],asNum));
+  return out;
 }
 function sheetFrom(rows){
-  const ws=XLSX.utils.aoa_to_sheet(rows.length?rows:[[""]]);
+  const ws=XLSX.utils.aoa_to_sheet(rows.length?rows:[[null]]);
   const w=[];
-  rows.forEach(r=>r.forEach((v,k)=>{w[k]=Math.max(w[k]||0,String(v).length)}));
-  ws["!cols"]=w.map(n=>({wch:Math.min(60,Math.max(8,(n||0)+2))}));
+  rows.forEach(r=>r.forEach((v,k)=>{if(v!=null)w[k]=Math.max(w[k]||0,String(v).length)}));
+  ws["!cols"]=Array.from(w,n=>({wch:Math.min(60,Math.max(8,(n||0)+2))}));
   return ws;
 }
 $("bx").onclick=async()=>{
   $("bx").disabled=true;say("mx","Reading text…");prog("px",0);
   try{
     const src=await openPdfjs(await xf.arrayBuffer());
-    const asNum=$("xn").checked,pages=[];let chars=0;
+    const asNum=$("xn").checked,gm=+$("xc").value,pagesLines=[];let chars=0;
     for(let i=1;i<=src.numPages;i++){
       const pg=await src.getPage(i);
       const lines=toLines(await pageItems(pg));
       chars+=lines.reduce((n,l)=>n+l.text.length,0);
-      pages.push(pageRows(lines,asNum));
+      lines.forEach(L=>{L.segs=lineSegs(L,gm)});pagesLines.push(lines);
       prog("px",i/src.numPages*0.8);
     }
     if(!chars){say("mx",NOTEXT,"er")}
     else{
       say("mx","Building Excel file…");
       const wb=XLSX.utils.book_new();
-      if($("xm").value==="one")XLSX.utils.book_append_sheet(wb,sheetFrom(pages.flat()),"PDF data");
-      else pages.forEach((rows,i)=>XLSX.utils.book_append_sheet(wb,sheetFrom(rows),"Page "+(i+1)));
+      if($("xm").value==="one"){
+        const all=pagesLines.flat(),cuts=findCuts(all);
+        XLSX.utils.book_append_sheet(wb,sheetFrom(all.map(L=>toRow(L,cuts,asNum))),"PDF data");
+      }else pagesLines.forEach((ls,i)=>{
+        const cuts=findCuts(ls);
+        XLSX.utils.book_append_sheet(wb,sheetFrom(ls.map(L=>toRow(L,cuts,asNum))),"Page "+(i+1));
+      });
       const bytes=new Uint8Array(XLSX.write(wb,{bookType:"xlsx",type:"array"}));prog("px",1);
       const r=await save(baseName(xf)+".xlsx",bytes);
       say("mx",r==="declined"?"Download cancelled.":r?("Excel file saved ("+fmt(bytes.length)+")."):"Could not save the file.",r===true?"ok":"er");
@@ -738,6 +784,58 @@ $("bg").onclick=async()=>{
     say("mg",r==="declined"?"Download cancelled.":r?(idx.length+" image"+(idx.length>1?"s":"")+" saved ("+fmt(size)+")."):"Could not save the file.",r===true?"ok":"er");
   }catch(e){say("mg","Something went wrong: the file may be damaged or password protected.","er")}
   prog("pg",null);$("bg").disabled=false;
+};
+
+/* reduce photo size */
+let phs=[];
+function renderP(){
+  const ul=$("lp");ul.innerHTML="";
+  phs.forEach((f,i)=>{
+    const li=document.createElement("li");
+    li.innerHTML='<span class="n"></span><span class="s"></span>';
+    li.querySelector(".n").textContent=f.name;li.querySelector(".s").textContent=fmt(f.size);
+    const b=document.createElement("button");b.className="ib";b.textContent="✕";
+    b.onclick=()=>{phs.splice(i,1);renderP()};li.appendChild(b);ul.appendChild(li);
+  });
+  $("bp").disabled=!phs.length;
+  say("mp",phs.length?phs.length+" photo"+(phs.length>1?"s":"")+" ready ("+fmt(phs.reduce((n,f)=>n+f.size,0))+").":"");
+}
+wireDrop($("dp"),$("fp"),l=>{phs.push(...l.filter(f=>/^image\//.test(f.type)||/\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name)));renderP()});
+$("bp").onclick=async()=>{
+  $("bp").disabled=true;say("mp","Reducing…");prog("pp",0);
+  try{
+    const q=+$("pq").value,maxd=+$("pd").value,webp=$("pf").value==="webp";
+    const type=webp?"image/webp":"image/jpeg",ext=webp?"webp":"jpg";
+    const outs=[];let before=0,after=0;
+    for(let i=0;i<phs.length;i++){
+      const f=phs[i];before+=f.size;
+      const bm=await createImageBitmap(f);
+      let w=bm.width,h=bm.height;
+      if(maxd&&Math.max(w,h)>maxd){const k=maxd/Math.max(w,h);w=Math.round(w*k);h=Math.round(h*k)}
+      const cv=document.createElement("canvas");cv.width=w;cv.height=h;
+      const cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,w,h);
+      cx.imageSmoothingQuality="high";cx.drawImage(bm,0,0,w,h);
+      if(bm.close)bm.close();
+      let blob=await new Promise(r=>cv.toBlob(r,type,q));
+      if(blob&&blob.type!==type&&webp)blob=await new Promise(r=>cv.toBlob(r,"image/jpeg",q));
+      cv.width=cv.height=0;
+      const bytes=new Uint8Array(await blob.arrayBuffer());
+      const stem=f.name.replace(/\.[^.]+$/,"");
+      if(bytes.length<f.size){after+=bytes.length;outs.push({name:stem+"-small."+(blob.type==="image/webp"?"webp":"jpg"),bytes})}
+      else{after+=f.size;outs.push({name:f.name,bytes:new Uint8Array(await f.arrayBuffer())})}
+      prog("pp",(i+1)/phs.length*0.95);
+    }
+    let r;
+    if(outs.length===1)r=await save(outs[0].name,outs[0].bytes);
+    else{
+      const zip=new JSZip(),used={};
+      outs.forEach(o=>{let n=o.name;if(used[n]){const d=n.lastIndexOf(".");n=n.slice(0,d)+"-"+used[n]+n.slice(d)}used[o.name]=(used[o.name]||0)+1;zip.file(n,o.bytes)});
+      r=await save("photos-reduced.zip",await zip.generateAsync({type:"uint8array",compression:"STORE"}));
+    }
+    const pct=Math.max(0,Math.round((1-after/before)*100));
+    say("mp",r==="declined"?"Download cancelled.":r?("Reduced from "+fmt(before)+" to "+fmt(after)+" ("+pct+"% smaller)."):"Could not save the file.",r===true?"ok":"er");
+  }catch(e){say("mp","Something went wrong: one of the photos could not be read.","er")}
+  prog("pp",null);$("bp").disabled=!phs.length;
 };
 
 /* PDF to text */
