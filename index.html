@@ -1,0 +1,767 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Hari Prasad PDF ToolKit</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#14181f;--mu:#667085;--bd:#e3e6eb;--ac:#2f5bea;--ac2:#fff;--ok:#12805c;--er:#c2362b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1218;--card:#181c25;--tx:#eef0f4;--mu:#9aa3b2;--bd:#2a303c;--ac:#6b8cff;--ac2:#0b0f1a;--ok:#4cd3a0;--er:#ff7b70;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1218;--card:#181c25;--tx:#eef0f4;--mu:#9aa3b2;--bd:#2a303c;--ac:#6b8cff;--ac2:#0b0f1a;--ok:#4cd3a0;--er:#ff7b70;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:720px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:1.6rem;margin:0 0 4px}
+.sub{color:var(--mu);margin:0 0 20px}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.tab{flex:1 1 130px;padding:9px 8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;font:inherit;font-size:.92rem;font-weight:600;cursor:pointer}
+.in{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);max-width:100%}
+.tab.on{background:var(--ac);color:var(--ac2);border-color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:18px}
+.drop{border:2px dashed var(--bd);border-radius:12px;padding:28px 12px;text-align:center;color:var(--mu);cursor:pointer}
+.drop.hot{border-color:var(--ac);color:var(--ac)}
+.drop b{color:var(--tx)}
+ul{list-style:none;margin:14px 0 0;padding:0}
+li{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--bd);border-radius:10px;margin-bottom:8px}
+li .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+li .s{color:var(--mu);font-size:.85rem}
+.ib{border:1px solid var(--bd);background:transparent;color:var(--tx);border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:1rem}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:14px}
+label{display:flex;gap:8px;align-items:center}
+select{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);max-width:100%}
+.btn{background:var(--ac);color:var(--ac2);border:0;border-radius:10px;padding:11px 18px;font:inherit;font-weight:600;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.msg{margin-top:14px;font-size:.95rem;color:var(--mu)}
+.msg.ok{color:var(--ok)}.msg.er{color:var(--er)}
+.bar{height:8px;background:var(--bd);border-radius:6px;overflow:hidden;margin-top:12px;display:none}
+.bar i{display:block;height:100%;width:0;background:var(--ac);transition:width .2s}
+.note{font-size:.85rem;color:var(--mu);margin-top:16px}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+</style>
+<main>
+  <h1>Hari Prasad PDF ToolKit</h1>
+  <p class="sub">Combine, shrink, split, edit, stamp and convert PDFs. Everything runs in your browser; files are never uploaded.</p>
+  <div class="tabs">
+    <button class="tab on" data-t="merge">Combine PDFs</button>
+    <button class="tab" data-t="comp">Reduce size</button>
+    <button class="tab" data-t="split">Extract pages</button>
+    <button class="tab" data-t="rot">Rotate / Delete</button>
+    <button class="tab" data-t="stamp">Numbers &amp; watermark</button>
+    <button class="tab" data-t="img2pdf">Images to PDF</button>
+    <button class="tab" data-t="pdf2img">PDF to Images</button>
+    <button class="tab" data-t="word">PDF to Word</button>
+    <button class="tab" data-t="xls">PDF to Excel</button>
+    <button class="tab" data-t="txt">PDF to Text</button>
+  </div>
+
+  <section id="merge" class="card">
+    <div class="drop" id="dm"><b>Click to choose PDFs</b> or drop them here<br><small>Use the arrows to set the order</small></div>
+    <input id="fm" type="file" accept="application/pdf" multiple hidden>
+    <ul id="lm"></ul>
+    <div class="row">
+      <label><input type="checkbox" id="cm"> Also compress</label>
+      <select id="qm"><option value="0.7">Light</option><option value="0.5" selected>Medium</option><option value="0.3">Strong</option></select>
+    </div>
+    <div class="row"><button class="btn" id="bm" disabled>Combine &amp; download</button></div>
+    <div class="bar" id="pm"><i></i></div>
+    <div class="msg" id="mm"></div>
+  </section>
+
+  <section id="comp" class="card" hidden>
+    <div class="drop" id="dc"><b>Click to choose a PDF</b> or drop it here</div>
+    <input id="fc" type="file" accept="application/pdf" hidden>
+    <ul id="lc"></ul>
+    <div class="row">
+      <label>Level
+        <select id="qc"><option value="0">Keep text selectable (lossless, small savings)</option><option value="0.7">Light (best quality)</option><option value="0.5" selected>Medium</option><option value="0.3">Strong (smallest)</option></select>
+      </label>
+    </div>
+    <div class="row"><button class="btn" id="bc" disabled>Reduce &amp; download</button></div>
+    <div class="bar" id="pc"><i></i></div>
+    <div class="msg" id="mc"></div>
+    <p class="note">Compression turns each page into an optimized image, so text can no longer be selected or searched. It works best on scanned or image-heavy PDFs. If the result isn’t smaller, try a stronger level.</p>
+  </section>
+
+  <section id="split" class="card" hidden>
+    <div class="drop" id="ds"><b>Click to choose a PDF</b> or drop it here</div>
+    <input id="fs" type="file" accept="application/pdf" hidden>
+    <ul id="ls"></ul>
+    <div class="row"><label>Pages <input id="rs" type="text" placeholder="e.g. 1-3, 5, 8-10" style="font:inherit;padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx)"></label></div>
+    <div class="row"><label><input type="checkbox" id="sep"> Save each page as its own PDF (one ZIP file)</label></div>
+    <div class="row"><button class="btn" id="bs" disabled>Extract &amp; download</button></div>
+    <div class="bar" id="ps"><i></i></div>
+    <div class="msg" id="ms"></div>
+    <p class="note">Keeps the original text and quality. Pages come out in the order you type them, so “3,1,2” reorders and “1,1” duplicates. With separate files on, leave Pages empty to split every page.</p>
+  </section>
+
+  <section id="word" class="card" hidden>
+    <div class="drop" id="dw"><b>Click to choose a PDF</b> or drop it here</div>
+    <input id="fw" type="file" accept="application/pdf" hidden>
+    <ul id="lw"></ul>
+    <div class="row"><button class="btn" id="bw" disabled>Convert to Word &amp; download</button></div>
+    <div class="bar" id="pw"><i></i></div>
+    <div class="msg" id="mw"></div>
+    <p class="note">Rebuilds editable text, paragraph by paragraph, from the text inside the PDF. Images, tables and exact layout are not carried over. Scanned PDFs contain no text, so they can’t be converted.</p>
+  </section>
+
+  <section id="xls" class="card" hidden>
+    <div class="drop" id="dx"><b>Click to choose a PDF</b> or drop it here</div>
+    <input id="fx" type="file" accept="application/pdf" hidden>
+    <ul id="lx"></ul>
+    <div class="row">
+      <label>Layout
+        <select id="xm"><option value="sheets" selected>One sheet per page</option><option value="one">All pages on one sheet</option></select>
+      </label>
+      <label><input type="checkbox" id="xn" checked> Turn numbers into numbers</label>
+    </div>
+    <div class="row"><button class="btn" id="bx" disabled>Convert to Excel &amp; download</button></div>
+    <div class="bar" id="px"><i></i></div>
+    <div class="msg" id="mx"></div>
+    <p class="note">Works best on PDFs with tables of text. Rows and columns are worked out from where the text sits on each page, so check the result. Scanned PDFs contain no text, so they can’t be converted.</p>
+  </section>
+
+  <section id="rot" class="card" hidden>
+    <div class="drop" id="dr"><b>Click to choose a PDF</b> or drop it here</div>
+    <input id="fr" type="file" accept="application/pdf" hidden>
+    <ul id="lr"></ul>
+    <div class="row">
+      <label>Action
+        <select id="ra"><option value="rotate" selected>Rotate pages</option><option value="delete">Delete pages</option><option value="reverse">Reverse page order</option></select>
+      </label>
+      <label id="rgw">Angle
+        <select id="rg"><option value="90" selected>90° clockwise</option><option value="180">180°</option><option value="270">90° counter-clockwise</option></select>
+      </label>
+    </div>
+    <div class="row" id="rpw"><label>Pages <input id="rp" class="in" type="text" placeholder="Leave empty for all pages"></label></div>
+    <div class="row"><button class="btn" id="br" disabled>Rotate &amp; download</button></div>
+    <div class="msg" id="mr"></div>
+    <p class="note">Keeps the original text and quality. Use page numbers like 1-3, 5, 8-10.</p>
+  </section>
+
+  <section id="stamp" class="card" hidden>
+    <div class="drop" id="dt"><b>Click to choose a PDF</b> or drop it here</div>
+    <input id="ft" type="file" accept="application/pdf" hidden>
+    <ul id="lt"></ul>
+    <div class="row">
+      <label><input type="checkbox" id="sn" checked> Add page numbers</label>
+      <select id="sf"><option value="n">1</option><option value="p">Page 1</option><option value="pn" selected>Page 1 of 10</option></select>
+      <select id="sp"><option value="center" selected>Bottom center</option><option value="right">Bottom right</option><option value="left">Bottom left</option></select>
+    </div>
+    <div class="row">
+      <label>Watermark <input id="sw" class="in" type="text" maxlength="40" placeholder="e.g. CONFIDENTIAL (optional)"></label>
+      <select id="so"><option value="0.15">Light</option><option value="0.25" selected>Medium</option><option value="0.4">Strong</option></select>
+    </div>
+    <div class="row"><button class="btn" id="bt" disabled>Add &amp; download</button></div>
+    <div class="msg" id="mt"></div>
+    <p class="note">Page numbers and watermark use Latin letters and digits. The watermark runs diagonally across every page.</p>
+  </section>
+
+  <section id="img2pdf" class="card" hidden>
+    <div class="drop" id="di"><b>Click to choose images</b> or drop them here<br><small>JPG, PNG, WebP and more. Use the arrows to set the order</small></div>
+    <input id="fi" type="file" accept="image/*" multiple hidden>
+    <ul id="li"></ul>
+    <div class="row">
+      <label>Page size
+        <select id="ip"><option value="fit" selected>Same as image</option><option value="a4">A4</option><option value="letter">US Letter</option></select>
+      </label>
+    </div>
+    <div class="row"><button class="btn" id="bi" disabled>Make PDF &amp; download</button></div>
+    <div class="bar" id="pi"><i></i></div>
+    <div class="msg" id="mi"></div>
+    <p class="note">One image per page. A4 and Letter pages turn sideways for wide images.</p>
+  </section>
+
+  <section id="pdf2img" class="card" hidden>
+    <div class="drop" id="dg"><b>Click to choose a PDF</b> or drop it here</div>
+    <input id="fg" type="file" accept="application/pdf" hidden>
+    <ul id="lg"></ul>
+    <div class="row">
+      <label>Format
+        <select id="ig"><option value="png" selected>PNG (sharp)</option><option value="jpg">JPG (smaller)</option></select>
+      </label>
+      <label>Quality
+        <select id="iq"><option value="96">Draft (96 dpi)</option><option value="150" selected>Standard (150 dpi)</option><option value="200">High (200 dpi)</option></select>
+      </label>
+    </div>
+    <div class="row"><label>Pages <input id="ir" class="in" type="text" placeholder="Leave empty for all pages"></label></div>
+    <div class="row"><button class="btn" id="bg" disabled>Convert &amp; download</button></div>
+    <div class="bar" id="pg"><i></i></div>
+    <div class="msg" id="mg"></div>
+    <p class="note">Several pages come as one ZIP with an image for each page. A single page comes as one image.</p>
+  </section>
+
+  <section id="txt" class="card" hidden>
+    <div class="drop" id="dy"><b>Click to choose a PDF</b> or drop it here</div>
+    <input id="fy" type="file" accept="application/pdf" hidden>
+    <ul id="ly"></ul>
+    <div class="row"><label><input type="checkbox" id="yp" checked> Mark where each page starts</label></div>
+    <div class="row"><button class="btn" id="by" disabled>Extract text &amp; download</button></div>
+    <div class="bar" id="py"><i></i></div>
+    <div class="msg" id="my"></div>
+    <p class="note">Saves the text inside the PDF as a plain .txt file. Scanned PDFs contain no text, so they can’t be converted.</p>
+  </section>
+
+  <footer style="margin-top:28px;text-align:center;color:var(--mu);font-size:.9rem">For more tools like this, contact <a href="mailto:hariprasaddunna@gmail.com" style="color:var(--ac)">hariprasaddunna@gmail.com</a></footer>
+</main>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const $=id=>document.getElementById(id);
+const {PDFDocument}=PDFLib;
+const fmt=b=>b>1048576?(b/1048576).toFixed(2)+" MB":Math.max(1,Math.round(b/1024))+" KB";
+const MIME={pdf:"application/pdf",docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",zip:"application/zip",txt:"text/plain",png:"image/png",jpg:"image/jpeg"};
+let dl=null;
+claude_init();
+async function claude_init(){try{dl=window.claude?await window.claude.use("downloads"):null}catch(e){dl=null}}
+function later(){ if(!dl) setTimeout(claude_init,1500) }
+later();
+
+async function save(name,bytes){
+  if(!dl) await claude_init();
+  if(dl){try{await dl.save({filename:name,data:bytes});return true}catch(e){return e&&e.code==="declined"?"declined":false}}
+  try{const ext=name.split(".").pop().toLowerCase();const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([bytes],{type:MIME[ext]||"application/octet-stream"}));a.download=name;a.click();return true}catch(e){return false}
+}
+
+const TABS=["merge","comp","split","rot","stamp","img2pdf","pdf2img","word","xls","txt"];
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===t));
+  TABS.forEach(id=>$(id).hidden=t.dataset.t!==id);
+});
+
+function wireDrop(dz,inp,cb){
+  dz.onclick=()=>inp.click();
+  inp.onchange=()=>{cb([...inp.files]);inp.value=""};
+  dz.ondragover=e=>{e.preventDefault();dz.classList.add("hot")};
+  dz.ondragleave=()=>dz.classList.remove("hot");
+  dz.ondrop=e=>{e.preventDefault();dz.classList.remove("hot");cb([...e.dataTransfer.files])};
+}
+const isPdf=f=>f.type==="application/pdf"||/\.pdf$/i.test(f.name);
+function prog(id,p){const b=$(id);b.style.display=p==null?"none":"block";if(p!=null)b.firstElementChild.style.width=Math.round(p*100)+"%"}
+function say(id,t,c){const m=$(id);m.textContent=t;m.className="msg "+(c||"")}
+const baseName=f=>f.name.replace(/\.pdf$/i,"");
+function fileRow(ulId,name,meta){
+  const ul=$(ulId);ul.innerHTML="";const li=document.createElement("li");
+  li.innerHTML='<span class="n"></span><span class="s"></span>';
+  li.querySelector(".n").textContent=name;li.querySelector(".s").textContent=meta;
+  ul.appendChild(li);
+}
+/* open a PDF with pdf.js; password-protected files fail cleanly */
+async function openPdfjs(buf){
+  const task=pdfjsLib.getDocument({data:new Uint8Array(buf.slice(0))});
+  task.onPassword=(cb,reason)=>{if(reason===1)cb("");else task.destroy()};
+  return task.promise;
+}
+
+/* compression: render pages to JPEG and rebuild */
+async function compress(buf,q,onp){
+  if(q===0){const d=await PDFDocument.load(buf,{ignoreEncryption:true});["Title","Author","Subject","Keywords","Creator","Producer"].forEach(k=>d["set"+k](k==="Keywords"?[]:""));onp(1);return d.save({useObjectStreams:true})}
+  const scale=q>=0.7?1.5:q>=0.5?1.2:0.9;
+  const src=await openPdfjs(buf);
+  const out=await PDFDocument.create();
+  for(let i=1;i<=src.numPages;i++){
+    const pg=await src.getPage(i);
+    const base=pg.getViewport({scale:1});
+    const vp=pg.getViewport({scale:scale*96/72*0.75*1.33});
+    const cv=document.createElement("canvas");cv.width=vp.width;cv.height=vp.height;
+    const cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,cv.width,cv.height);
+    await pg.render({canvasContext:cx,viewport:vp}).promise;
+    const blob=await new Promise(r=>cv.toBlob(r,"image/jpeg",q));
+    const img=await out.embedJpg(new Uint8Array(await blob.arrayBuffer()));
+    const page=out.addPage([base.width,base.height]);
+    page.drawImage(img,{x:0,y:0,width:base.width,height:base.height});
+    cv.width=cv.height=0;
+    onp(i/src.numPages);
+  }
+  return out.save({useObjectStreams:true});
+}
+
+/* merge tab */
+let files=[];
+function renderM(){
+  const ul=$("lm");ul.innerHTML="";
+  files.forEach((f,i)=>{
+    const li=document.createElement("li");
+    li.innerHTML='<span class="n"></span><span class="s"></span>';
+    li.querySelector(".n").textContent=f.name;li.querySelector(".s").textContent=fmt(f.size);
+    [["↑",-1],["↓",1],["✕",0]].forEach(([t,d])=>{
+      const b=document.createElement("button");b.className="ib";b.textContent=t;
+      b.onclick=()=>{if(d===0)files.splice(i,1);else{const j=i+d;if(j<0||j>=files.length)return;[files[i],files[j]]=[files[j],files[i]]}renderM()};
+      li.appendChild(b);
+    });
+    ul.appendChild(li);
+  });
+  $("bm").disabled=files.length<2;
+  say("mm",files.length<2?(files.length?"Add at least one more PDF.":""):files.length+" files ready.");
+}
+wireDrop($("dm"),$("fm"),l=>{files.push(...l.filter(isPdf));renderM()});
+$("bm").onclick=async()=>{
+  $("bm").disabled=true;say("mm","Combining…");prog("pm",0);
+  try{
+    const out=await PDFDocument.create();
+    for(let i=0;i<files.length;i++){
+      const d=await PDFDocument.load(await files[i].arrayBuffer(),{ignoreEncryption:true});
+      const pgs=await out.copyPages(d,d.getPageIndices());pgs.forEach(p=>out.addPage(p));
+      prog("pm",(i+1)/files.length*(($("cm").checked)?0.4:1));
+    }
+    let bytes=await out.save();
+    const before=bytes.length;
+    if($("cm").checked){
+      say("mm","Compressing…");
+      bytes=await compress(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),+$("qm").value,p=>prog("pm",0.4+p*0.6));
+    }
+    const r=await save("combined.pdf",bytes);
+    say("mm",r==="declined"?"Download cancelled.":r?("Done: "+fmt(bytes.length)+($("cm").checked?" (was "+fmt(before)+")":"")+"."):"Could not save the file.",r===true?"ok":"er");
+  }catch(e){say("mm","Something went wrong: one of the files may be damaged or protected.","er")}
+  prog("pm",null);$("bm").disabled=files.length<2;
+};
+
+/* extract pages tab */
+let sf=null,sn=0;
+wireDrop($("ds"),$("fs"),async l=>{
+  const f=l.find(isPdf);if(!f)return;sf=f;
+  try{sn=(await PDFDocument.load(await f.arrayBuffer(),{ignoreEncryption:true})).getPageCount()}catch(e){sn=0;say("ms","Could not read this PDF (it may be protected or damaged).","er");return}
+  fileRow("ls",f.name,sn+" pages · "+fmt(f.size));
+  $("bs").disabled=false;say("ms","");
+});
+function parseRanges(s,max){
+  const out=[];
+  for(const part of s.split(",").map(x=>x.trim()).filter(Boolean)){
+    const m=part.match(/^(\d+)(?:\s*-\s*(\d+))?$/);if(!m)return null;
+    const a=+m[1],b=m[2]?+m[2]:a;if(a<1||b<1||a>max||b>max)return null;
+    if(a<=b)for(let i=a;i<=b;i++)out.push(i-1);else for(let i=a;i>=b;i--)out.push(i-1);
+  }
+  return out.length?out:null;
+}
+$("sep").onchange=()=>{
+  const on=$("sep").checked;
+  $("bs").textContent=on?"Split & download ZIP":"Extract & download";
+  $("rs").placeholder=on?"Leave empty for all pages":"e.g. 1-3, 5, 8-10";
+};
+$("bs").onclick=async()=>{
+  const sep=$("sep").checked,txt=$("rs").value.trim();
+  const idx=(sep&&!txt)?Array.from({length:sn},(_,i)=>i):parseRanges(txt,sn);
+  if(!idx){say("ms","Enter valid pages between 1 and "+sn+", like 1-3, 5.","er");return}
+  $("bs").disabled=true;say("ms","Working…");prog("ps",0);
+  try{
+    const src=await PDFDocument.load(await sf.arrayBuffer(),{ignoreEncryption:true});
+    const base=baseName(sf);
+    if(sep&&idx.length>1){
+      const zip=new JSZip(),used={},w=String(sn).length;
+      for(let k=0;k<idx.length;k++){
+        const n=idx[k]+1;
+        const one=await PDFDocument.create();
+        (await one.copyPages(src,[idx[k]])).forEach(p=>one.addPage(p));
+        used[n]=(used[n]||0)+1;
+        zip.file(base+"-page-"+String(n).padStart(w,"0")+(used[n]>1?"-"+used[n]:"")+".pdf",await one.save({useObjectStreams:true}));
+        prog("ps",(k+1)/idx.length*0.9);
+      }
+      const bytes=await zip.generateAsync({type:"uint8array",compression:"STORE"});
+      const r=await save(base+"-pages.zip",bytes);
+      say("ms",r==="declined"?"Download cancelled.":r?(idx.length+" separate PDFs saved in one ZIP ("+fmt(bytes.length)+")."):"Could not save the file.",r===true?"ok":"er");
+    }else{
+      const out=await PDFDocument.create();
+      (await out.copyPages(src,idx)).forEach(p=>out.addPage(p));
+      const bytes=await out.save({useObjectStreams:true});
+      const r=await save(base+"-pages.pdf",bytes);
+      say("ms",r==="declined"?"Download cancelled.":r?(idx.length+" page"+(idx.length>1?"s":"")+" saved ("+fmt(bytes.length)+")."):"Could not save the file.",r===true?"ok":"er");
+    }
+  }catch(e){say("ms","Something went wrong with this file.","er")}
+  prog("ps",null);$("bs").disabled=false;
+};
+
+/* compress tab */
+let one=null;
+wireDrop($("dc"),$("fc"),l=>{
+  const f=l.find(isPdf);if(!f)return;one=f;
+  fileRow("lc",f.name,fmt(f.size));$("bc").disabled=false;say("mc","");
+});
+$("bc").onclick=async()=>{
+  $("bc").disabled=true;say("mc","Compressing…");prog("pc",0);
+  try{
+    const bytes=await compress(await one.arrayBuffer(),+$("qc").value,p=>prog("pc",p));
+    const pct=Math.round((1-bytes.length/one.size)*100);
+    if(bytes.length>=one.size){say("mc","Result ("+fmt(bytes.length)+") is not smaller than the original ("+fmt(one.size)+"). Try a stronger level; the original is already well optimized.","er")}
+    else{
+      const r=await save(baseName(one)+"-compressed.pdf",bytes);
+      say("mc",r==="declined"?"Download cancelled.":r?("Reduced from "+fmt(one.size)+" to "+fmt(bytes.length)+" ("+pct+"% smaller)."):"Could not save the file.",r===true?"ok":"er");
+    }
+  }catch(e){say("mc","Something went wrong: the file may be damaged or password protected.","er")}
+  prog("pc",null);$("bc").disabled=false;
+};
+
+/* text extraction shared by Word and Excel */
+const RTL=/[֐-ࣿיִ-﷿ﹰ-﻿]/g;
+const NOTEXT="No selectable text found. This looks like a scanned PDF, which would need OCR, and that isn’t available here.";
+async function pageItems(pg){
+  const tc=await pg.getTextContent(),out=[];
+  for(const it of tc.items){
+    if(typeof it.str!=="string"||!it.str.trim())continue;
+    const t=it.transform;
+    out.push({s:it.str,x:t[4],y:t[5],w:it.width,h:Math.abs(it.height)||Math.hypot(t[2],t[3])||10});
+  }
+  return out;
+}
+function toLines(items){
+  items.sort((a,b)=>b.y-a.y||a.x-b.x);
+  const lines=[];
+  for(const it of items){
+    const L=lines[lines.length-1];
+    if(L&&Math.abs(L.y-it.y)<=Math.max(2,L.h*0.45)){L.items.push(it);L.h=Math.max(L.h,it.h)}
+    else lines.push({y:it.y,h:it.h,items:[it]});
+  }
+  for(const L of lines){
+    const total=L.items.reduce((n,i)=>n+i.s.length,0);
+    L.rtl=(L.items.map(i=>i.s).join("").match(RTL)||[]).length>total/2;
+    L.items.sort((a,b)=>L.rtl?b.x-a.x:a.x-b.x);
+    let txt="",prev=null;
+    for(const it of L.items){
+      if(prev){
+        const gap=L.rtl?prev.x-(it.x+it.w):it.x-(prev.x+prev.w);
+        if(gap>L.h*0.15&&!/\s$/.test(txt)&&!/^\s/.test(it.s))txt+=" ";
+      }
+      txt+=it.s;prev=it;
+    }
+    L.text=txt.trim();
+    L.left=Math.min(...L.items.map(i=>i.x));
+    L.right=Math.max(...L.items.map(i=>i.x+i.w));
+  }
+  return lines.filter(L=>L.text);
+}
+
+/* PDF to Word */
+let wf=null;
+wireDrop($("dw"),$("fw"),l=>{
+  const f=l.find(isPdf);if(!f)return;wf=f;
+  fileRow("lw",f.name,fmt(f.size));$("bw").disabled=false;say("mw","");
+});
+async function buildDocx(pages,size){
+  const esc=s=>s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g,"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  let body="";
+  pages.forEach((lines,pi)=>{
+    const paras=[];
+    const minX=lines.length?Math.min(...lines.map(l=>l.left)):0;
+    const maxR=lines.length?Math.max(...lines.map(l=>l.right)):0;
+    for(const L of lines){
+      const P=paras[paras.length-1],prev=P&&P.last;
+      const dy=prev?prev.y-L.y:0;
+      const join=prev&&prev.rtl===L.rtl&&dy>0&&dy<=prev.h*1.7&&Math.abs(prev.h-L.h)<prev.h*0.15&&prev.right>=minX+(maxR-minX)*0.88&&Math.abs(L.left-prev.left)<=prev.h*2.5;
+      if(join){P.text+=" "+L.text;P.last=L}
+      else paras.push({text:L.text,last:L,left:L.left,h:L.h,rtl:L.rtl,pb:false});
+    }
+    if(!paras.length)paras.push({text:"",last:null,left:minX,h:11,rtl:false,pb:false});
+    paras[0].pb=pi>0;
+    for(const P of paras){
+      const ind=P.rtl?0:Math.min(6000,Math.max(0,Math.round((P.left-minX)*20)));
+      const sz=Math.min(72,Math.max(16,Math.round(P.h*2)));
+      const ppr=(P.pb?"<w:pageBreakBefore/>":"")+(P.rtl?"<w:bidi/>":"")+(ind>200?'<w:ind w:left="'+ind+'"/>':"");
+      const rpr='<w:rPr><w:sz w:val="'+sz+'"/><w:szCs w:val="'+sz+'"/>'+(P.rtl?"<w:rtl/>":"")+"</w:rPr>";
+      body+="<w:p>"+(ppr?"<w:pPr>"+ppr+"</w:pPr>":"")+(P.text?"<w:r>"+rpr+'<w:t xml:space="preserve">'+esc(P.text)+"</w:t></w:r>":"")+"</w:p>";
+    }
+  });
+  const NS='xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+  const H='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  const pw=Math.round(size[0]*20),ph=Math.round(size[1]*20);
+  const zip=new JSZip();
+  zip.file("[Content_Types].xml",H+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>');
+  zip.file("_rels/.rels",H+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+  zip.file("word/_rels/document.xml.rels",H+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+  zip.file("word/styles.xml",H+"<w:styles "+NS+'><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri" w:eastAsia="Calibri"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="264" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults></w:styles>');
+  zip.file("word/document.xml",H+"<w:document "+NS+"><w:body>"+body+'<w:sectPr><w:pgSz w:w="'+pw+'" w:h="'+ph+'"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>');
+  return zip.generateAsync({type:"uint8array",compression:"DEFLATE"});
+}
+$("bw").onclick=async()=>{
+  $("bw").disabled=true;say("mw","Reading text…");prog("pw",0);
+  try{
+    const src=await openPdfjs(await wf.arrayBuffer());
+    const pages=[];let chars=0,size=null;
+    for(let i=1;i<=src.numPages;i++){
+      const pg=await src.getPage(i);
+      if(!size){const v=pg.getViewport({scale:1});size=[v.width,v.height]}
+      const lines=toLines(await pageItems(pg));
+      chars+=lines.reduce((n,l)=>n+l.text.length,0);
+      pages.push(lines);
+      prog("pw",i/src.numPages*0.8);
+    }
+    if(!chars){say("mw",NOTEXT,"er")}
+    else{
+      say("mw","Building Word file…");
+      const bytes=await buildDocx(pages,size);prog("pw",1);
+      const r=await save(baseName(wf)+".docx",bytes);
+      say("mw",r==="declined"?"Download cancelled.":r?("Word file saved ("+fmt(bytes.length)+", "+pages.length+" page"+(pages.length>1?"s":"")+" of text)."):"Could not save the file.",r===true?"ok":"er");
+    }
+  }catch(e){say("mw","Something went wrong: the file may be damaged or password protected.","er")}
+  prog("pw",null);$("bw").disabled=false;
+};
+
+/* PDF to Excel */
+let xf=null;
+wireDrop($("dx"),$("fx"),l=>{
+  const f=l.find(isPdf);if(!f)return;xf=f;
+  fileRow("lx",f.name,fmt(f.size));$("bx").disabled=false;say("mx","");
+});
+function cellValue(t,asNum){
+  if(asNum&&t.length<=16&&(/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(t)||/^-?(0|[1-9]\d*)(\.\d+)?$/.test(t)))return Number(t.replace(/,/g,""));
+  return t;
+}
+/* turn one page's lines into rows of cells, with columns lined up by x position */
+function pageRows(lines,asNum){
+  const rows=lines.map(L=>{
+    const cells=[];let cur=null,prev=null;
+    const items=L.items.slice().sort((a,b)=>a.x-b.x);
+    for(const it of items){
+      const gap=prev?it.x-(prev.x+prev.w):0;
+      if(!cur||gap>Math.max(6,L.h*0.8))cells.push(cur={x:it.x,t:it.s});
+      else cur.t+=(gap>L.h*0.15&&!/\s$/.test(cur.t)&&!/^\s/.test(it.s)?" ":"")+it.s;
+      prev=it;
+    }
+    cells.forEach(c=>c.t=c.t.trim());
+    return cells.filter(c=>c.t);
+  }).filter(r=>r.length);
+  const xs=[...new Set(rows.flat().map(c=>Math.round(c.x)))].sort((a,b)=>a-b);
+  const colOf=new Map();let ci=-1,last=-Infinity;
+  for(const x of xs){if(x-last>10)ci++;colOf.set(x,ci);last=x}
+  return rows.map(r=>{
+    const row=[];
+    for(const c of r){
+      const k=colOf.get(Math.round(c.x));
+      row[k]=row[k]===undefined?c.t:row[k]+" "+c.t;
+    }
+    for(let k=0;k<row.length;k++)row[k]=row[k]===undefined?"":cellValue(row[k],asNum);
+    return row;
+  });
+}
+function sheetFrom(rows){
+  const ws=XLSX.utils.aoa_to_sheet(rows.length?rows:[[""]]);
+  const w=[];
+  rows.forEach(r=>r.forEach((v,k)=>{w[k]=Math.max(w[k]||0,String(v).length)}));
+  ws["!cols"]=w.map(n=>({wch:Math.min(60,Math.max(8,(n||0)+2))}));
+  return ws;
+}
+$("bx").onclick=async()=>{
+  $("bx").disabled=true;say("mx","Reading text…");prog("px",0);
+  try{
+    const src=await openPdfjs(await xf.arrayBuffer());
+    const asNum=$("xn").checked,pages=[];let chars=0;
+    for(let i=1;i<=src.numPages;i++){
+      const pg=await src.getPage(i);
+      const lines=toLines(await pageItems(pg));
+      chars+=lines.reduce((n,l)=>n+l.text.length,0);
+      pages.push(pageRows(lines,asNum));
+      prog("px",i/src.numPages*0.8);
+    }
+    if(!chars){say("mx",NOTEXT,"er")}
+    else{
+      say("mx","Building Excel file…");
+      const wb=XLSX.utils.book_new();
+      if($("xm").value==="one")XLSX.utils.book_append_sheet(wb,sheetFrom(pages.flat()),"PDF data");
+      else pages.forEach((rows,i)=>XLSX.utils.book_append_sheet(wb,sheetFrom(rows),"Page "+(i+1)));
+      const bytes=new Uint8Array(XLSX.write(wb,{bookType:"xlsx",type:"array"}));prog("px",1);
+      const r=await save(baseName(xf)+".xlsx",bytes);
+      say("mx",r==="declined"?"Download cancelled.":r?("Excel file saved ("+fmt(bytes.length)+")."):"Could not save the file.",r===true?"ok":"er");
+    }
+  }catch(e){say("mx","Something went wrong: the file may be damaged or password protected.","er")}
+  prog("px",null);$("bx").disabled=false;
+};
+
+/* single-PDF picker used by the newer tabs */
+function pickPdf(dz,inp,ul,btn,msg,set){
+  wireDrop($(dz),$(inp),async l=>{
+    const f=l.find(isPdf);if(!f)return;
+    let n=0;
+    try{n=(await PDFDocument.load(await f.arrayBuffer(),{ignoreEncryption:true})).getPageCount()}
+    catch(e){say(msg,"Could not read this PDF (it may be protected or damaged).","er");return}
+    fileRow(ul,f.name,n+" pages · "+fmt(f.size));$(btn).disabled=false;say(msg,"");set(f,n);
+  });
+}
+const pad=(n,w)=>String(n).padStart(w,"0");
+
+/* rotate / delete / reverse */
+let rf=null,rn=0;
+pickPdf("dr","fr","lr","br","mr",(f,n)=>{rf=f;rn=n});
+$("ra").onchange=()=>{
+  const a=$("ra").value;
+  $("rgw").hidden=a!=="rotate";$("rpw").hidden=a==="reverse";
+  $("rp").placeholder=a==="delete"?"e.g. 2, 5-7":"Leave empty for all pages";
+  $("br").textContent=a==="rotate"?"Rotate & download":a==="delete"?"Delete & download":"Reverse & download";
+};
+$("br").onclick=async()=>{
+  const a=$("ra").value,txt=$("rp").value.trim();
+  let idx=null;
+  if(a!=="reverse"){
+    idx=(a==="rotate"&&!txt)?Array.from({length:rn},(_,i)=>i):parseRanges(txt,rn);
+    if(!idx){say("mr","Enter valid pages between 1 and "+rn+", like 1-3, 5.","er");return}
+    idx=[...new Set(idx)];
+    if(a==="delete"&&idx.length>=rn){say("mr","That would delete every page. Keep at least one.","er");return}
+  }
+  $("br").disabled=true;say("mr","Working…");
+  try{
+    let doc=await PDFDocument.load(await rf.arrayBuffer(),{ignoreEncryption:true});
+    if(a==="rotate"){
+      const d=+$("rg").value;
+      idx.forEach(i=>{const p=doc.getPage(i);p.setRotation(PDFLib.degrees((p.getRotation().angle+d)%360))});
+    }else if(a==="delete"){
+      idx.sort((x,y)=>y-x).forEach(i=>doc.removePage(i));
+    }else{
+      const out=await PDFDocument.create();
+      (await out.copyPages(doc,Array.from({length:rn},(_,i)=>rn-1-i))).forEach(p=>out.addPage(p));
+      doc=out;
+    }
+    const bytes=await doc.save({useObjectStreams:true});
+    const r=await save(baseName(rf)+(a==="rotate"?"-rotated":a==="delete"?"-edited":"-reversed")+".pdf",bytes);
+    const what=a==="rotate"?idx.length+" page"+(idx.length>1?"s":"")+" rotated":a==="delete"?idx.length+" page"+(idx.length>1?"s":"")+" deleted":"Page order reversed";
+    say("mr",r==="declined"?"Download cancelled.":r?(what+" ("+fmt(bytes.length)+")."):"Could not save the file.",r===true?"ok":"er");
+  }catch(e){say("mr","Something went wrong with this file.","er")}
+  $("br").disabled=false;
+};
+
+/* page numbers and watermark */
+let tf=null;
+pickPdf("dt","ft","lt","bt","mt",f=>{tf=f});
+$("bt").onclick=async()=>{
+  const num=$("sn").checked,wm=$("sw").value.trim();
+  if(!num&&!wm){say("mt","Turn on page numbers or type a watermark.","er");return}
+  $("bt").disabled=true;say("mt","Working…");
+  try{
+    const doc=await PDFDocument.load(await tf.arrayBuffer(),{ignoreEncryption:true});
+    const font=await doc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const pages=doc.getPages(),N=pages.length,op=+$("so").value,fm=$("sf").value,pos=$("sp").value;
+    pages.forEach((pg,i)=>{
+      const {width:pw,height:ph}=pg.getSize();
+      if(wm){
+        const w1=font.widthOfTextAtSize(wm,1);
+        const size=Math.min(110,Math.hypot(pw,ph)*0.7/w1);
+        const w=w1*size,h=size*0.7,c=Math.SQRT1_2;
+        pg.drawText(wm,{x:pw/2-(w/2*c-h/2*c),y:ph/2-(w/2*c+h/2*c),size,font,color:PDFLib.rgb(0.5,0.5,0.5),opacity:op,rotate:PDFLib.degrees(45)});
+      }
+      if(num){
+        const label=fm==="n"?String(i+1):fm==="p"?"Page "+(i+1):"Page "+(i+1)+" of "+N;
+        const w=font.widthOfTextAtSize(label,10);
+        const x=pos==="left"?36:pos==="right"?pw-36-w:(pw-w)/2;
+        pg.drawText(label,{x,y:24,size:10,font,color:PDFLib.rgb(0.25,0.25,0.25)});
+      }
+    });
+    const bytes=await doc.save({useObjectStreams:true});
+    const r=await save(baseName(tf)+"-stamped.pdf",bytes);
+    say("mt",r==="declined"?"Download cancelled.":r?("Saved ("+fmt(bytes.length)+")."):"Could not save the file.",r===true?"ok":"er");
+  }catch(e){say("mt",/encode|WinAnsi/i.test((e&&e.message)||"")?"The watermark has characters that aren’t supported. Use Latin letters and digits.":"Something went wrong with this file.","er")}
+  $("bt").disabled=false;
+};
+
+/* images to PDF */
+let imgs=[];
+function renderI(){
+  const ul=$("li");ul.innerHTML="";
+  imgs.forEach((f,i)=>{
+    const li=document.createElement("li");
+    li.innerHTML='<span class="n"></span><span class="s"></span>';
+    li.querySelector(".n").textContent=f.name;li.querySelector(".s").textContent=fmt(f.size);
+    [["↑",-1],["↓",1],["✕",0]].forEach(([t,d])=>{
+      const b=document.createElement("button");b.className="ib";b.textContent=t;
+      b.onclick=()=>{if(d===0)imgs.splice(i,1);else{const j=i+d;if(j<0||j>=imgs.length)return;[imgs[i],imgs[j]]=[imgs[j],imgs[i]]}renderI()};
+      li.appendChild(b);
+    });
+    ul.appendChild(li);
+  });
+  $("bi").disabled=!imgs.length;
+  say("mi",imgs.length?imgs.length+" image"+(imgs.length>1?"s":"")+" ready.":"");
+}
+wireDrop($("di"),$("fi"),l=>{imgs.push(...l.filter(f=>/^image\//.test(f.type)||/\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name)));renderI()});
+async function imageData(f){
+  if(f.type==="image/png")return {png:new Uint8Array(await f.arrayBuffer())};
+  const bm=await createImageBitmap(f);
+  const cv=document.createElement("canvas");cv.width=bm.width;cv.height=bm.height;
+  const cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(bm,0,0);
+  const blob=await new Promise(r=>cv.toBlob(r,"image/jpeg",0.92));
+  const out={jpg:new Uint8Array(await blob.arrayBuffer())};
+  cv.width=cv.height=0;if(bm.close)bm.close();
+  return out;
+}
+$("bi").onclick=async()=>{
+  $("bi").disabled=true;say("mi","Building PDF…");prog("pi",0);
+  try{
+    const doc=await PDFDocument.create(),mode=$("ip").value;
+    for(let i=0;i<imgs.length;i++){
+      const d=await imageData(imgs[i]);
+      const img=d.png?await doc.embedPng(d.png):await doc.embedJpg(d.jpg);
+      let pw,ph,dw,dh,x,y;
+      if(mode==="fit"){
+        const s=Math.min(1,842/Math.max(img.width,img.height));
+        pw=dw=img.width*s;ph=dh=img.height*s;x=0;y=0;
+      }else{
+        [pw,ph]=mode==="a4"?[595.28,841.89]:[612,792];
+        if(img.width>img.height)[pw,ph]=[ph,pw];
+        const m=24,s=Math.min((pw-2*m)/img.width,(ph-2*m)/img.height);
+        dw=img.width*s;dh=img.height*s;x=(pw-dw)/2;y=(ph-dh)/2;
+      }
+      doc.addPage([pw,ph]).drawImage(img,{x,y,width:dw,height:dh});
+      prog("pi",(i+1)/imgs.length);
+    }
+    const bytes=await doc.save({useObjectStreams:true});
+    const r=await save("images.pdf",bytes);
+    say("mi",r==="declined"?"Download cancelled.":r?(imgs.length+" page"+(imgs.length>1?"s":"")+" saved ("+fmt(bytes.length)+")."):"Could not save the file.",r===true?"ok":"er");
+  }catch(e){say("mi","Something went wrong: one of the images could not be read.","er")}
+  prog("pi",null);$("bi").disabled=!imgs.length;
+};
+
+/* PDF to images */
+let gf=null,gn=0;
+pickPdf("dg","fg","lg","bg","mg",(f,n)=>{gf=f;gn=n});
+$("bg").onclick=async()=>{
+  const txt=$("ir").value.trim();
+  const idx=txt?parseRanges(txt,gn):Array.from({length:gn},(_,i)=>i);
+  if(!idx){say("mg","Enter valid pages between 1 and "+gn+", like 1-3, 5.","er");return}
+  $("bg").disabled=true;say("mg","Converting…");prog("pg",0);
+  try{
+    const src=await openPdfjs(await gf.arrayBuffer());
+    const png=$("ig").value==="png",ext=png?"png":"jpg",dpi=+$("iq").value,base=baseName(gf),w=String(gn).length;
+    const zip=new JSZip();let single=null;
+    for(let k=0;k<idx.length;k++){
+      const pg=await src.getPage(idx[k]+1);
+      let sc=dpi/72;
+      const v1=pg.getViewport({scale:sc});
+      if(v1.width*v1.height>16e6)sc*=Math.sqrt(16e6/(v1.width*v1.height));
+      const vp=pg.getViewport({scale:sc});
+      const cv=document.createElement("canvas");cv.width=Math.floor(vp.width);cv.height=Math.floor(vp.height);
+      const cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,cv.width,cv.height);
+      await pg.render({canvasContext:cx,viewport:vp}).promise;
+      const blob=await new Promise(r=>cv.toBlob(r,png?"image/png":"image/jpeg",0.92));
+      const bytes=new Uint8Array(await blob.arrayBuffer());
+      cv.width=cv.height=0;
+      const name=base+"-page-"+pad(idx[k]+1,w)+"."+ext;
+      if(idx.length===1)single={name,bytes};else zip.file(name,bytes);
+      prog("pg",(k+1)/idx.length*0.95);
+    }
+    let r,size;
+    if(single){size=single.bytes.length;r=await save(single.name,single.bytes)}
+    else{const z=await zip.generateAsync({type:"uint8array",compression:"STORE"});size=z.length;r=await save(base+"-images.zip",z)}
+    say("mg",r==="declined"?"Download cancelled.":r?(idx.length+" image"+(idx.length>1?"s":"")+" saved ("+fmt(size)+")."):"Could not save the file.",r===true?"ok":"er");
+  }catch(e){say("mg","Something went wrong: the file may be damaged or password protected.","er")}
+  prog("pg",null);$("bg").disabled=false;
+};
+
+/* PDF to text */
+let yf=null;
+pickPdf("dy","fy","ly","by","my",f=>{yf=f});
+$("by").onclick=async()=>{
+  $("by").disabled=true;say("my","Reading text…");prog("py",0);
+  try{
+    const src=await openPdfjs(await yf.arrayBuffer());
+    const parts=[];let chars=0;
+    for(let i=1;i<=src.numPages;i++){
+      const lines=toLines(await pageItems(await src.getPage(i)));
+      const t=lines.map(l=>l.text).join("\n");chars+=t.length;
+      parts.push(($("yp").checked?"--- Page "+i+" ---\n":"")+t);
+      prog("py",i/src.numPages);
+    }
+    if(!chars){say("my",NOTEXT,"er")}
+    else{
+      const text=parts.join("\n\n"),r=await save(baseName(yf)+".txt",text);
+      say("my",r==="declined"?"Download cancelled.":r?("Text file saved ("+fmt(new Blob([text]).size)+")."):"Could not save the file.",r===true?"ok":"er");
+    }
+  }catch(e){say("my","Something went wrong: the file may be damaged or password protected.","er")}
+  prog("py",null);$("by").disabled=false;
+};
+</script>
+
+</body></html>
